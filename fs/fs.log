@@ -1,0 +1,108 @@
+[WARN] alloc_block: Out of blocks
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+
+[INFO] Create file inode 1, inside directory inode 0
+[INFO] Create file inode 2, inside directory inode 0
+[INFO] Create dir inode 3, inside directory inode 0
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	32	c
+-rwrw	1	05-28 10:52	0	a
+-rwrw	1	05-28 10:52	0	b
+
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	32	c
+-rwrw	1	05-28 10:52	0	a
+-rwrw	1	05-28 10:52	0	b
+
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	32	c
+-rwrw	1	05-28 10:52	0	a
+-rwrw	1	05-28 10:52	0	b
+
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	32	c
+-rwrw	1	05-28 10:52	0	a
+-rwrw	1	05-28 10:52	0	b
+
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create file inode 1, inside directory inode 0
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+-rwrw	1	05-28 10:52	0	testfile
+
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create file inode 1, inside directory inode 0
+[WARN] mk: testfile already exists!
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 1, inside directory inode 0
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	32	mydir
+
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 1, inside directory inode 0
+[WARN] mkdir: mydir already exists!
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 1, inside directory inode 0
+[WARN] cd: Not found!
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 1, inside directory inode 0
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	32	mydir
+
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create file inode 1, inside directory inode 0
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create dir inode 1, inside directory inode 0
+[INFO] Create file inode 2, inside directory inode 1
+[WARN] rmdir: Directory not empty!
+[WARN] ls: Dirty entry
+[INFO] List files
+Type 	Owner	Update time	Size	Name
+drwrw	1	05-28 10:52	48	mydir
+
+[INFO] Create dir inode 0, inside directory inode 0
+[INFO] Disk format done
+[INFO] Create file inode 1, inside directory inode 0
