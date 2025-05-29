@@ -20,8 +20,6 @@ typedef unsigned int uint;
 // containg block for inode i
 #define IBLOCK(i) ((i) / IPB + sb.inodestart)
 
-#define MAXARGS 6
-
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
 

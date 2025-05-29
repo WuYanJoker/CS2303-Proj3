@@ -15,7 +15,7 @@ typedef struct {
 } entry;
 
 extern ushort uid;
-extern uint pwd;
+// extern uint pwd;
 
 void sbinit();
 

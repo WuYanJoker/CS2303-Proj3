@@ -12,9 +12,8 @@
     int argc = parse(args, argv, maxargs);
 
 int parse(char *line, char *argv[], int lim) {
-    char *p;
     int argc = 0;
-    p = strtok(line, " ");
+    char *p = strtok(line, " ");
     while (p) {
         argv[argc++] = p;
         if (argc >= lim) break;
@@ -29,6 +28,7 @@ int parse(char *line, char *argv[], int lim) {
 }
 
 int handle_i(tcp_buffer *wb, char *args, int len) {
+    Log("Information request");
     int ncyl, nsec;
     cmd_i(&ncyl, &nsec);
     static char buf[64];
@@ -40,10 +40,12 @@ int handle_i(tcp_buffer *wb, char *args, int len) {
 }
 
 int handle_r(tcp_buffer *wb, char *args, int len) {
-    ParseArgs(MAXARGS);
+    Log("Read request");
+    // R c s
+    ParseArgs(2);
     if (argc < 2) {
         printf("No\n");
-        Log("Invalid arguments");
+        Warn("Invalid arguments");
         return 0;
     }
     int cyl = atoi(argv[0]);
@@ -58,16 +60,18 @@ int handle_r(tcp_buffer *wb, char *args, int len) {
 }
 
 int handle_w(tcp_buffer *wb, char *args, int len) {
-    ParseArgs(MAXARGS);
+    Log("Write request");
+    // W c s l data
+    ParseArgs(3);
     if (argc < 3) {
         printf("No\n");
-        Log("Invalid arguments");
+        Warn("Invalid arguments");
         return 0;
     }
     int cyl = atoi(argv[0]);
     int sec = atoi(argv[1]);
-    char *data = argv[2];
-    int datalen = strlen(data);
+    int datalen = atoi(argv[2]);
+    char *data = argv[3];
 
     if (cmd_w(cyl, sec, datalen, data) == 0) {
         reply_with_yes(wb, NULL, 0);

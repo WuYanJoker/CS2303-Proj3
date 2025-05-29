@@ -69,7 +69,7 @@ int checkLogin(){
 int checkFmt(){
     int ret = checkLogin();
     if(sb.magic != MAGIC){
-        Error("Not formatted");
+        Warn("Not formatted");
         return E_NOT_FORMATTED;
     }
     return ret ? E_NOT_LOGGED_IN : E_SUCCESS;
@@ -298,25 +298,39 @@ int cmd_rmdir(char *name) {
     return E_SUCCESS;
 }
 
-int cmd_cd(char *name) {
-    int ret = checkFmt();
-    if(ret) return ret;
+int _cd(char *name) {
     uint inum = findinum(name);
     if (inum == NINODE(sb.size)) {
         Warn("cd: Not found!");
-        return E_ERROR;
+        return 1;
     }
-    ret = checkPermission(inum, R);
-    if(ret) return ret;
+    checkPermission(inum, R);
     inode *ip = iget(inum);
     checkIp(ip);
     if (ip->type != T_DIR) {
         Warn("cd: Not a directory");
         iput(ip);
-        return E_ERROR;
+        return 1;
     }
     pwd = inum;
     iput(ip);
+    return 0;
+}
+
+int cmd_cd(char *str) {
+    int ret = checkFmt();
+    if(ret) return ret;
+    char *ptr = NULL;
+    int backup = pwd;
+    if (str[0] == '/') pwd = 0;  // start from root
+    char *p = strtok_r(str, "/", &ptr);
+    while (p) {
+        if (_cd(p) != 0) {  // if not success
+            pwd = backup;   // restore the pwd
+            return E_ERROR;
+        }
+        p = strtok_r(NULL, "/", &ptr);
+    }
     return E_SUCCESS;
 }
 
@@ -414,10 +428,15 @@ int cmd_cat(char *name, uchar **buf, uint *len) {
         return E_ERROR;
     }
 
+    if(*buf != NULL){
+        Warn("cat: Dirty buffer");
+        // return E_ERROR;
+    } 
     *buf = malloc(ip->size + 2);
     readi(ip, *buf, 0, ip->size);
-    *buf[ip->size] = '\n';
-    *buf[ip->size + 1] = '\0';
+    (*buf)[ip->size] = '\n';
+    (*buf)[ip->size + 1] = '\0';
+    *len = strlen((const char *)*buf);
 
     iput(ip);
     return E_SUCCESS;

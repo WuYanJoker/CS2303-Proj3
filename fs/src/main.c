@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,7 +53,7 @@ int handle_f(char *args) {
 }
 
 int handle_mk(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(1);
     if (argc < 1) {
         ReplyNo("Usage: mk <filename>");
         return 0;
@@ -71,7 +70,7 @@ int handle_mk(char *args) {
 }
 
 int handle_mkdir(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(1);
     if (argc < 1) {
         ReplyNo("Usage: mkdir <dirname>");
         return 0;
@@ -88,12 +87,12 @@ int handle_mkdir(char *args) {
 }
 
 int handle_rm(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(1);
     if (argc < 1) {
         ReplyNo("Usage: rm <filename>");
         return 0;
     }
-    char *name;
+    char *name = argv[0];
     if (cmd_rm(name) == E_SUCCESS) {
         ReplyYes();
     } else {
@@ -103,31 +102,23 @@ int handle_rm(char *args) {
 }
 
 int handle_cd(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(1);
     if (argc < 1) {
         ReplyNo("Usage: cd <dirname>");
         return 0;
     }
-    char *ptr = NULL;
-    int backup = pwd;
-    if (argv[0][0] == '/') pwd = 0;  // start from root
-    char *name = strtok_r(argv[0], "/", &ptr);
-    while (name) {
-        if (cmd_cd(name) == E_SUCCESS) {
-            name = strtok_r(NULL, "/", &ptr);
-            ReplyYes();
-        }
-        else {
-            pwd = backup;
-            ReplyNo("Failed to change directory");
-            return 0;
-        }
+    char *name = argv[0];
+    if (cmd_cd(name) == E_SUCCESS) {
+        ReplyYes();
+    }
+    else {
+        ReplyNo("Failed to change directory");
     }
     return 0;
 }
 
 int handle_rmdir(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(1);
     if (argc < 1) {
         ReplyNo("Usage: rmdir <dirname>");
         return 0;
@@ -154,7 +145,7 @@ int handle_ls(char *args) {
 }
 
 int handle_cat(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(1);
     if (argc < 1) {
         ReplyNo("Usage: cat <filename>");
         return 0;
@@ -193,7 +184,7 @@ int handle_w(char *args) {
 int handle_i(char *args) {
     ParseArgs(3);
     if (argc < 3) {
-        PrtNo("Usage: i <filename> <pos> <length> <data>");
+        ReplyNo("Usage: i <filename> <pos> <length> <data>");
         return 0;
     }
     char *name = argv[0];
@@ -209,9 +200,9 @@ int handle_i(char *args) {
 }
 
 int handle_d(char *args) {
-    ParseArgs(MAXARGS);
+    ParseArgs(3);
     if (argc < 3) {
-        PrtNo("Usage: d <filename> <pos> <length>");
+        ReplyNo("Usage: d <filename> <pos> <length>");
         return 0;
     }
     char *name = argv[0];

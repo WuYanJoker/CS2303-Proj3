@@ -11,9 +11,8 @@
     int argc = parse(args, argv, maxargs);
 
 int parse(char *line, char *argv[], int lim) {
-    char *p;
     int argc = 0;
-    p = strtok(line, " ");
+    char *p = strtok(line, " ");
     while (p) {
         argv[argc++] = p;
         if (argc >= lim) break;
@@ -24,6 +23,8 @@ int parse(char *line, char *argv[], int lim) {
     } else {
         argv[argc] = NULL;
     }
+    // for(int i = 0; i <= lim; ++i)
+    //     printf("%s ", argv[i]);
     return argc;
 }
 
@@ -36,8 +37,8 @@ int handle_i(char *args) {
 }
 
 int handle_r(char *args) {
-    // Parse the arguments
-    ParseArgs(MAXARGS);
+    // R c s
+    ParseArgs(2);
     if (argc < 2) {
         printf("No\n");
         Log("Invalid arguments");
@@ -61,7 +62,8 @@ int handle_r(char *args) {
 }
 
 int handle_w(char *args) {
-    ParseArgs(MAXARGS);
+    // W c s l data
+    ParseArgs(3);
     if (argc < 3) {
         printf("No\n");
         Log("Invalid arguments");
@@ -69,8 +71,8 @@ int handle_w(char *args) {
     }
     int cyl = atoi(argv[0]);
     int sec = atoi(argv[1]);
-    char *data = argv[2];
-    int len = strlen(data);
+    int len = atoi(argv[2]);
+    char *data = argv[3];
 
     if (cmd_w(cyl, sec, len, data) == 0) {
         printf("Yes\n");
