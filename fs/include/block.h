@@ -7,10 +7,12 @@
 
 #define NBBLOCK(size) (size / BPB + 1)
 
+#define MAXUSER 16
+
 typedef struct {
     ushort uid;
-    uint hwd;
-} user;
+    uint cwd;         // current work directory
+} _user;
 
 typedef struct {
     uint magic;      // Magic number, used to identify the file system
@@ -21,6 +23,7 @@ typedef struct {
     uint inodestart;
     uint datastart;
     uint lastmodify;
+    _user users[MAXUSER]; 
     // Other fields can be added as needed
 } superblock;
 

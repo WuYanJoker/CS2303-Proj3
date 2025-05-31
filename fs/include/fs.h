@@ -14,6 +14,11 @@ typedef struct {
     uint size;
 } entry;
 
+typedef struct{
+    int client_id;
+    int uid;
+} id_map;
+
 extern ushort uid;
 // extern uint pwd;
 
@@ -42,6 +47,7 @@ int cmd_w(char *name, uint len, const char *data);
 int cmd_i(char *name, uint pos, uint len, const char *data);
 int cmd_d(char *name, uint pos, uint len);
 
+int to_home(int uid);
 int cmd_login(int auid);
 int cmd_exit();
 

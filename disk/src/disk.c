@@ -24,7 +24,7 @@ int init_disk(char *filename, int ncyl, int nsec, int ttd) {
     _nsec = nsec;
     _ttd = ttd;
     // open file
-    int fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0777);
+    int fd = open(filename, O_RDWR | O_CREAT, 0666);
     // printf("%d\n", fd);
     if(fd < 0){
         Log("Error: Could not open file '%s' .\n", filename);

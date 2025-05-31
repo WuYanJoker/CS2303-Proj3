@@ -13,6 +13,7 @@
 
 // global variables
 int ncyl, nsec;
+id_map clientmap[MAXUSER];
 
 #define ReplyYes()       \
     do {                 \
@@ -335,6 +336,11 @@ int handle_login(tcp_buffer *wb, char *args, int len) {
     } else {
         sprintf(msg, "Failed to login");
         reply_with_no(wb, msg, strlen(msg) + 1);
+    }
+
+    int ret = backInfo(msg, to_home(uid));
+    if (ret == E_SUCCESS) {
+        Log("User %d's home directory created", uid);
     }
     return 0;
 }

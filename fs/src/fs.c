@@ -9,7 +9,7 @@
 #include "log.h"
 
 ushort uid;
-uint pwd;
+uint cwd;
 
 void sbinit() {
     uchar buf[BSIZE];
@@ -49,13 +49,15 @@ int format(int *ncyl, int *nsec){
         write_block(BBLOCK(i), buf);
     }
 
-    pwd = 0;
+    cwd = 0;
     // make root dir
     if (!icreate(T_DIR, NULL, 0, 0, 0b11111)){
         Log("Disk format done");
         Log("size=%u, nblocks=%u, ninodes=%u", sb.size, sb.nblocks, sb.ninodes);
     }
     else return -1;
+    
+    to_home(1);
     return sb.size;
 }
 
@@ -130,9 +132,9 @@ int is_name_valid(char *name) {
     return 1;
 }
 
-// find inum from pwd
+// find inum from cwd
 uint findinum(char *name) {
-    inode *ip = iget(pwd);
+    inode *ip = iget(cwd);
     checkIp(ip);
     
     uchar *buf = malloc(ip->size);
@@ -154,9 +156,9 @@ uint findinum(char *name) {
     return result;
 }
 
-// delete inode from pwd
+// delete inode from cwd
 int delinum(uint inum) {
-    inode *ip = iget(pwd);
+    inode *ip = iget(cwd);
     checkIp(ip);
 
     uchar *buf = malloc(ip->size);
@@ -214,7 +216,7 @@ int cmd_f(int ncyl, int nsec) {
 int cmd_mk(char *name, short mode) {
     int ret = checkFmt();
     if(ret) return ret;
-    ret = checkPermission(pwd, R | W);
+    ret = checkPermission(cwd, R | W);
     if(ret) return ret;
     if (!is_name_valid(name)) {
         Warn("mk: Invalid name!");
@@ -224,14 +226,14 @@ int cmd_mk(char *name, short mode) {
         Warn("mk: %s already exists!", name);
         return E_ERROR;
     }
-    if(icreate(T_FILE, name, pwd, uid, mode)) return E_ERROR;
+    if(icreate(T_FILE, name, cwd, uid, mode)) return E_ERROR;
     return E_SUCCESS;
 }
 
 int cmd_mkdir(char *name, short mode) {
     int ret = checkFmt();
     if(ret) return ret;
-    ret = checkPermission(pwd, R | W);
+    ret = checkPermission(cwd, R | W);
     if(ret) return ret;
     if (!is_name_valid(name)) {
         Warn("mkdir: Invalid name!");
@@ -241,7 +243,7 @@ int cmd_mkdir(char *name, short mode) {
         Warn("mkdir: %s already exists!", name);
         return E_ERROR;
     }
-    if(icreate(T_DIR, name, pwd, uid, mode)) return E_ERROR;
+    if(icreate(T_DIR, name, cwd, uid, mode)) return E_ERROR;
     return E_SUCCESS;
 }
 
@@ -261,7 +263,7 @@ int cmd_rm(char *name) {
         return E_ERROR;
     }
     ret = checkPermission(inum, W);
-    ret |= checkPermission(pwd, R | W);
+    ret |= checkPermission(cwd, R | W);
     if(ret){
         iput(ip);
         return ret;
@@ -294,7 +296,7 @@ int cmd_rmdir(char *name) {
         return E_ERROR;
     }
     ret = checkPermission(inum, R | W);
-    ret |= checkPermission(pwd, R | W);
+    ret |= checkPermission(cwd, R | W);
     if(ret){
         iput(ip);
         return ret;
@@ -344,7 +346,7 @@ int _cd(char *name) {
         iput(ip);
         return E_ERROR;
     }
-    pwd = inum;
+    cwd = inum;
     iput(ip);
     return 0;
 }
@@ -353,13 +355,13 @@ int cmd_cd(char *str) {
     int ret = checkFmt();
     if(ret) return ret;
     char *ptr = NULL;
-    int backup = pwd;
-    if (str[0] == '/') pwd = 0;  // start from root
+    int backup = cwd;
+    if (str[0] == '/') cwd = 0;  // start from root
     char *p = strtok_r(str, "/", &ptr);
     while (p) {
         ret = _cd(p);
         if (ret != 0) {  // if not success
-            pwd = backup;   // restore the pwd
+            cwd = backup;   // restore the cwd
             return ret;
         }
         p = strtok_r(NULL, "/", &ptr);
@@ -383,9 +385,9 @@ int cmp_ls(const void *a, const void *b) {
 int cmd_ls(entry **entries, int *n) {
     int ret = checkFmt();
     if(ret) return ret;
-    ret = checkPermission(pwd, R);
+    ret = checkPermission(cwd, R);
     if(ret) return ret;
-    inode *ip = iget(pwd);
+    inode *ip = iget(cwd);
     checkIp(ip);
 
     uchar *buf = malloc(ip->size);
@@ -569,30 +571,89 @@ int cmd_d(char *name, uint pos, uint len) {
     return E_SUCCESS;
 }
 
+int to_home(int uid){
+    int ret = checkFmt();
+    if(ret) return ret;
+    uint backup = cwd;
+    ret = cmd_cd("/home");
+    if(ret != E_SUCCESS){
+        Warn("to_home: Home directory not found");
+        ret = cmd_mkdir("home", 0b11111);
+        if(ret != E_SUCCESS){
+            Error("to_home: Failed to create home directory");
+            return ret;
+        }
+        ret = cmd_cd("/home");
+        if(ret != E_SUCCESS){
+            Error("to_home: Failed to cd /home");
+            return ret;
+        }
+    }
+
+    char uid_home[MAXNAME];
+    sprintf(uid_home, "%d", uid);
+    ret = cmd_cd(uid_home);
+    if(ret != E_SUCCESS){
+        ret = cmd_mkdir(uid_home, 0b111111);
+        if(ret != E_SUCCESS){
+            Error("to_home: Failed to creart user home dir");
+            return ret;
+        }
+        ret = cmd_cd(uid_home);
+        if(ret != E_SUCCESS){
+            Error("to_home: Failed to cd user home");
+            return ret;
+        }
+    }
+
+    for(int i = 0; i < MAXUSER; ++i){
+        if(sb.users[i].uid == uid){
+            sb.users[i].cwd = cwd;
+            uchar buf[BSIZE];
+            memcpy(buf, &sb, sizeof(sb));
+            write_block(0, buf);
+            break;
+        } 
+    }
+
+    cwd = backup;
+    return E_SUCCESS;
+}
+
 int cmd_login(int auid) {
     if (auid <= 0 || auid >= 1024) {
         Warn("login: Invalid uid");
         return E_ERROR;
     }
     uid = auid;
-    return E_SUCCESS;
+    for(int i = 0; i < MAXUSER; ++i){
+        if(sb.users[i].uid == 0){
+            sb.users[i].uid = auid;
+            uchar buf[BSIZE];
+            memcpy(buf, &sb, sizeof(sb));
+            write_block(0, buf);
+            return E_SUCCESS;
+        }
+    }
+    Error("No free uid space");
+    return E_ERROR;
 }
 
 int cmd_exit() {
     uid = 0;
-    pwd = 0;
+    cwd = 0;
     return E_SUCCESS;
 }
 
 int cmd_pwd(char **msg, uint *len){
-    inode *ip = iget(pwd);
+    inode *ip = iget(cwd);
     checkIp(ip);
 
     char name[256][MAXNAME];
     uchar *buf = malloc(ip->size);
     readi(ip, buf, 0, ip->size);
     dirent *dir = (dirent *)buf;
-    int nfile = ip->size / sizeof(dirent), ndir = 0, curr = pwd;
+    int nfile = ip->size / sizeof(dirent), ndir = 0, curr = cwd;
     *len = 0;
     while(ip->inum != 0){
         if(nfile < 2){
