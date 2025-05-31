@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "log.h"
 
@@ -84,6 +85,7 @@ int cmd_r(int cyl, int sec, char *buf) {
 }
 
 int cmd_w(int cyl, int sec, int len, char *data) {
+    static long sys_pagesize = 0;
     // write data to disk
     if (cyl >= _ncyl || sec >= _nsec || cyl < 0 || sec < 0) {
         Log("Invalid cylinder or sector");
@@ -96,7 +98,16 @@ int cmd_w(int cyl, int sec, int len, char *data) {
     delay(cyl);
     int n = cyl * _nsec + sec;
     // printf("%d %p\n", n, diskfile);
-    memcpy(diskfile + BLOCKSIZE * n, data, len);
+    char *disk_addr = diskfile + BLOCKSIZE * n;
+    memcpy(disk_addr, data, len);
+
+    if(sys_pagesize == 0) sys_pagesize = sysconf(_SC_PAGESIZE);
+    if(sys_pagesize == -1) sys_pagesize = 4096;
+
+    char *mapped_end = diskfile + (BLOCKSIZE * _ncyl * _nsec);
+    char *sync_start = (char *)((uintptr_t)disk_addr & ~(sys_pagesize - 1));
+    size_t sync_length = (sync_start + 2 * sys_pagesize) > mapped_end ? (mapped_end - sync_start) : 2 * sys_pagesize;
+    if(msync(sync_start, sync_length, MS_SYNC) == -1) return 1;
     return 0;
 }
 
@@ -104,6 +115,7 @@ void close_disk() {
     // close the file
     if (diskfile != NULL && diskfile != MAP_FAILED) {
         long FILESIZE = BLOCKSIZE * _ncyl * _nsec;
+        msync(diskfile, FILESIZE, MS_SYNC);
         if(munmap(diskfile, FILESIZE) == -1){
             Log("Error: Munmap failed.");
         }

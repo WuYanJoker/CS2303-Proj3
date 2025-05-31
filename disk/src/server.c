@@ -44,7 +44,7 @@ int handle_r(tcp_buffer *wb, char *args, int len) {
     // R c s
     ParseArgs(2);
     if (argc < 2) {
-        printf("No\n");
+        reply_with_no(wb, NULL, 0);
         Warn("Invalid arguments");
         return 0;
     }
@@ -53,8 +53,10 @@ int handle_r(tcp_buffer *wb, char *args, int len) {
     char buf[512];
     if (cmd_r(cyl, sec, buf) == 0) {
         reply_with_yes(wb, buf, 512);
+        Log("cyl: %d, sec: %d, data: \n%s", cyl, sec, buf);
     } else {
         reply_with_no(wb, NULL, 0);
+        Error("Failed to read");
     }
     return 0;
 }
@@ -64,7 +66,7 @@ int handle_w(tcp_buffer *wb, char *args, int len) {
     // W c s l data
     ParseArgs(3);
     if (argc < 3) {
-        printf("No\n");
+        reply_with_no(wb, NULL, 0);
         Warn("Invalid arguments");
         return 0;
     }
@@ -72,11 +74,13 @@ int handle_w(tcp_buffer *wb, char *args, int len) {
     int sec = atoi(argv[1]);
     int datalen = atoi(argv[2]);
     char *data = argv[3];
+    Log("cly: %d, sec: %d, len: %d, data: \n%s", cyl, sec, datalen, data);
 
     if (cmd_w(cyl, sec, datalen, data) == 0) {
         reply_with_yes(wb, NULL, 0);
     } else {
         reply_with_no(wb, NULL, 0);
+        Error("Failed to write");
     }
     return 0;
 }
@@ -130,7 +134,7 @@ void cleanup(int id) {
 FILE *log_file;
 
 int main(int argc, char *argv[]) {
-    if (argc < 5) {
+    if (argc < 6) {
         fprintf(stderr,
                 "Usage: %s <disk file name> <cylinders> <sector per cylinder> "
                 "<track-to-track delay> <port>\n",

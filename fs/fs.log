@@ -1,71 +1,14 @@
-[INFO] Use command: mk f
-[WARN] Please enter your UID: login <uid>
-
-[ERROR] Not formatted
-[WARN] Failed to create file
+[INFO] Connected to disk server
+[INFO] Use command: login 1
+[INFO] Success
 [INFO] Use command: f
 [INFO] Create dir inode 0, inside directory inode 0
 [INFO] Disk format done
 [INFO] Success
-[INFO] Use command: mk file1
-[WARN] Please enter your UID: login <uid>
-
-[WARN] Failed to create file
-[INFO] Use command: login 114
-[INFO] Success
-[INFO] Use command: mk file
-[INFO] Create file inode 1, inside directory inode 0
-[INFO] Success
 [INFO] Use command: ls
 [INFO] List files
 Type 	Owner	Update time	Size	Name
--rwr-	114	05-29 10:28	0	file
 
 [INFO] Success
-[INFO] Use command: mkdir directory
-[INFO] Create dir inode 2, inside directory inode 0
-[INFO] Success
-[INFO] Use command: ls
-[INFO] List files
-Type 	Owner	Update time	Size	Name
-drwr-	114	05-29 10:28	32	directory
--rwr-	114	05-29 10:28	0	file
-
-[INFO] Success
-[INFO] Use command: cd directory
-[INFO] Success
-[INFO] Use command: mk test
-[INFO] Create file inode 3, inside directory inode 2
-[INFO] Success
-[INFO] Use command: w test 10 HELLOWORLD
-[INFO] Success
-[INFO] Use command: r test
-[INFO] No such command
-[INFO] Use command: cat test
-[INFO] Success
-[INFO] Use command: i test 5 4 this
-[INFO] Success
-[INFO] Use command: cat test
-[INFO] Success
-[INFO] Use command: 
-[INFO] No such command
-[INFO] Use command: 
-[INFO] No such command
-[INFO] Use command: 
-[INFO] No such command
-[INFO] Use command: 
-[INFO] No such command
-[INFO] Use command: cd ..
-[INFO] Success
-[INFO] Use command: ls
-[INFO] List files
-Type 	Owner	Update time	Size	Name
-drwr-	114	05-29 10:29	48	directory
--rwr-	114	05-29 10:28	0	file
-
-[INFO] Success
-[INFO] Use command: rmdir directory
-[WARN] rmdir: Directory not empty!
-[WARN] Failed to remove directory
-[INFO] Use command: e
-[INFO] Exit
+[INFO] Use command: f
+[INFO] Create dir inode 1, inside directory inode 0

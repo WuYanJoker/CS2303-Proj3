@@ -8,6 +8,11 @@
 #define NBBLOCK(size) (size / BPB + 1)
 
 typedef struct {
+    ushort uid;
+    uint hwd;
+} user;
+
+typedef struct {
     uint magic;      // Magic number, used to identify the file system
     uint size;       // Size in blocks
     uint nblocks;
@@ -24,11 +29,12 @@ typedef struct {
 
 // sb is defined in block.c
 extern superblock sb;
-extern int diskfd;
 
 void zero_block(uint bno);
 uint allocate_block();
 void free_block(uint bno);
+
+void diskseverinit(int port);
 
 void get_disk_info(int *ncyl, int *nsec);
 void read_block(int blockno, uchar *buf);

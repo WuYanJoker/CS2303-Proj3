@@ -15,20 +15,23 @@ enum {
     T_FILE = 2,  // File
 };
 
+// permissions
+enum { 
+    R = 0b10,
+    W = 0b01,
+};
+
 // You should add more fields
 // the size of a dinode must divide BSIZE
 typedef struct {  // 64 bytes
-    ushort type;              // File type
-    ushort mode;
-    ushort uid;
-    ushort links;
-    uint mtime;
+    ushort type;              // File type: 0 empty, 1 dir, 2 file
+    ushort mode;              // File mode: rwrwv for owner and others, v means visible
+    ushort uid;               // Owner id
+    ushort links;             // Number of links to inode
+    uint mtime;               // Last modified time
     uint size;                // Size in bytes
     uint blocks;              // Number of blocks, may be larger than size
     uint addrs[NDIRECT + 2];  // Data block addresses, the last two are indirect blocks
-    // ...
-    // ...
-    // Other fields can be added as needed
 } dinode;
 
 // inode in memory
@@ -43,9 +46,6 @@ typedef struct {
     uint size;
     uint blocks;
     uint addrs[NDIRECT + 2]; // the last two are indirect blocks
-    // ...
-    // ...
-    // Other fields can be added as needed
 } inode;
 
 // You can change the size of MAXNAME

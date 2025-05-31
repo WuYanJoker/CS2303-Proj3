@@ -59,7 +59,7 @@ int handle_mk(char *args) {
         return 0;
     }
     char *name = argv[0];
-    short mode = argc >= 2 ? (atoi(argv[1]) & 0b1111) : 0b1110;
+    short mode = argc >= 2 ? (atoi(argv[1]) & 0b11111) : 0b11111;
 
     if (cmd_mk(name, mode) == E_SUCCESS) {
         ReplyYes();
@@ -76,7 +76,7 @@ int handle_mkdir(char *args) {
         return 0;
     }
     char *name = argv[0];
-    short mode = argc >= 2 ? (atoi(argv[1]) & 0b1111) : 0b1110;
+    short mode = argc >= 2 ? (atoi(argv[1]) & 0b11111) : 0b11111;
     
     if (cmd_mkdir(name, mode) == E_SUCCESS) {
         ReplyYes();
@@ -139,6 +139,28 @@ int handle_ls(char *args) {
         ReplyNo("Failed to list files");
         return 0;
     }
+    char str[100];  // for time
+    char logbuf[4096], *logtmp;
+    printf("\33[1mType \tOwner\tUpdate time\tSize\tName\033[0m\n");
+    logtmp = logbuf;
+    logtmp += sprintf(logtmp, "List files\nType \tOwner\tUpdate time\tSize\tName\n");
+    for (int i = 0; i < n; ++i) {
+        time_t mtime = entries[i].mtime;
+        struct tm *tmptr = localtime(&mtime);
+        strftime(str, sizeof(str), "%m-%d %H:%M", tmptr);
+        short d = entries[i].type == T_DIR;
+        short m = (d << 5) | entries[i].mode;
+        static char a[] = "drwrwv";
+        for (int j = 0; j <= 5; j++) {
+            printf("%c", m & (1 << (5 - j)) ? a[j] : '-');
+            logtmp += sprintf(logtmp, "%c", m & (1 << (5 - j)) ? a[j] : '-');
+        }
+        printf("\t%u\t%s\t%d\t", entries[i].uid, str, entries[i].size);
+        printf(d ? "\033[34m\33[1m%s\033[0m\n" : "%s\n", entries[i].name);
+        // WARN: BUFFER OVERFLOW
+        logtmp += sprintf(logtmp, "\t%u\t%s\t%d\t%s\n", entries[i].uid, str, entries[i].size, entries[i].name);
+    }
+    Log("%s", logbuf);
     ReplyYes();
     free(entries);
     return 0;
@@ -246,9 +268,19 @@ static struct {
 FILE *log_file;
 
 int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr,
+                "Usage: %s <BDSPort>>\n",
+                argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
     log_init("fs.log");
 
     assert(BSIZE % sizeof(dinode) == 0);
+
+    diskseverinit(atoi(argv[1]));
+    Log("Connected to disk server");
 
     // get disk info and store in global variables
     get_disk_info(&ncyl, &nsec);

@@ -1,7 +1,9 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "block.h"
 #include "common.h"
@@ -71,26 +73,28 @@ int handle_f(tcp_buffer *wb, char *args, int len) {
         reply_with_yes(wb, NULL, 0);
     } else {
         if(ret == E_ERROR) sprintf(buf, "Failed to format");
+        else if(ret == E_PERMISSION_DENIED) sprintf(buf, "Only UID=1 is authorized to format");
         reply_with_no(wb, buf, strlen(buf) + 1);
     }
     return 0;
 }
 
 int handle_mk(tcp_buffer *wb, char *args, int len) {
-    // mk f
+    // mk f (access)
     char buf[64];
-    ParseArgs(1);
+    ParseArgs(2);
     if (argc < 1) {
         sprintf(buf, "Usage: mk <filename>");
         reply_with_no(wb, buf, strlen(buf) + 1);
         return 0;
     }
     char *name = argv[0];
-    short mode = argc >= 2 ? (atoi(argv[1]) & 0b1111) : 0b1110;
+    short mode = argc >= 2 ? (atoi(argv[1]) & 0b11111) : 0b11111;
 
     int ret = backInfo(buf, cmd_mk(name, mode));
     if (ret == E_SUCCESS) {
         reply_with_yes(wb, NULL, 0);
+        Log("mk %s %d", name, mode);
     } else {
         if(ret == E_ERROR) sprintf(buf, "Failed to create file");
         reply_with_no(wb, buf, strlen(buf) + 1);
@@ -99,20 +103,21 @@ int handle_mk(tcp_buffer *wb, char *args, int len) {
 }
 
 int handle_mkdir(tcp_buffer *wb, char *args, int len) {
-    // mkdir d
+    // mkdir d (access)
     char buf[64];
-    ParseArgs(1);
+    ParseArgs(2);
     if (argc < 1) {
         sprintf(buf, "Usage: mkdir <dirname>");
         reply_with_no(wb, buf, strlen(buf) + 1);
         return 0;
     }
     char *name = argv[0];
-    short mode = argc >= 2 ? (atoi(argv[1]) & 0b1111) : 0b1110;
+    short mode = argc >= 2 ? (atoi(argv[1]) & 0b11111) : 0b11111;
     
     int ret = backInfo(buf, cmd_mkdir(name, mode));
     if (ret == E_SUCCESS) {
         reply_with_yes(wb, NULL, 0);
+        Log("mkdir %s %d", name, mode);
     } else {
         if(ret == E_ERROR) sprintf(buf, "Failed to create directory");
         reply_with_no(wb, buf, strlen(buf) + 1);
@@ -185,12 +190,28 @@ int handle_rmdir(tcp_buffer *wb, char *args, int len) {
 
 int handle_ls(tcp_buffer *wb, char *args, int len) {
     // ls
-    char buf[64];
+    char buf[4096];
     entry *entries = NULL;
     int n = 0;
     int ret = backInfo(buf, cmd_ls(&entries, &n));
     if (ret == E_SUCCESS) {
-        reply_with_yes(wb, NULL, 0);
+        char str[100];  // for time
+        sprintf(buf, "\33[1mType \tOwner\tUpdate time\tSize\tName\033[0m\n");
+        for (int i = 0; i < n; ++i) {
+            time_t mtime = entries[i].mtime;
+            struct tm *tmptr = localtime(&mtime);
+            strftime(str, sizeof(str), "%m-%d %H:%M", tmptr);
+            short d = entries[i].type == T_DIR;
+            short m = (d << 5) | entries[i].mode;
+            static char a[] = "drwrwv";
+            for (int j = 0; j <= 5; ++j) {
+                sprintf(buf + strlen(buf), "%c", m & (1 << (5 - j)) ? a[j] : '-');
+            }
+            sprintf(buf + strlen(buf), "\t%u\t%s\t%d\t", entries[i].uid, str, entries[i].size);
+            sprintf(buf + strlen(buf), d ? "\033[34m\33[1m%s\033[0m\n" : "%s\n", entries[i].name);
+        }
+        // reply_with_yes(wb, NULL, 0);
+        reply(wb, buf, strlen(buf) + 1);
     } else {
         if(ret == E_ERROR) sprintf(buf, "Failed to list files");
         reply_with_no(wb, buf, strlen(buf) + 1);
@@ -211,10 +232,10 @@ int handle_cat(tcp_buffer *wb, char *args, int len) {
     char *name = argv[0];
 
     uchar *databuf = NULL;
-    uint len;
-    int ret = backInfo(buf, cmd_cat(name, &databuf, &len));
+    uint datalen;
+    int ret = backInfo(buf, cmd_cat(name, &databuf, &datalen));
     if (ret == E_SUCCESS) {
-        reply_with_yes(wb, databuf, len + 1);
+        reply_with_yes(wb, (const char *)databuf, datalen + 1);
         free(databuf);
     } else {
         if(ret == E_ERROR) sprintf(buf, "Failed to read file");
@@ -233,10 +254,10 @@ int handle_w(tcp_buffer *wb, char *args, int len) {
         return 0;
     }
     char *name = argv[0];
-    uint len = atoi(argv[1]);
+    uint datalen = atoi(argv[1]);
     char *data = argv[2];
 
-    int ret = backInfo(buf, cmd_w(name, len, data));
+    int ret = backInfo(buf, cmd_w(name, datalen, data));
     if (ret == E_SUCCESS) {
         reply_with_yes(wb, NULL, 0);
     } else {
@@ -257,10 +278,10 @@ int handle_i(tcp_buffer *wb, char *args, int len) {
     }
     char *name = argv[0];
     uint pos = atoi(argv[1]);
-    uint len = atoi(argv[2]);
+    uint datalen = atoi(argv[2]);
     char *data = argv[3];
 
-    int ret = backInfo(buf, cmd_i(name, pos, len, data));
+    int ret = backInfo(buf, cmd_i(name, pos, datalen, data));
     if (ret == E_SUCCESS) {
         reply_with_yes(wb, NULL, 0);
     } else {
@@ -281,9 +302,9 @@ int handle_d(tcp_buffer *wb, char *args, int len) {
     }
     char *name = argv[0];
     uint pos = atoi(argv[1]);
-    uint len = atoi(argv[2]);
+    uint datalen = atoi(argv[2]);
 
-    int ret = backInfo(buf, cmd_d(name, pos, len));
+    int ret = backInfo(buf, cmd_d(name, pos, datalen));
     if (ret == E_SUCCESS) {
         reply_with_yes(wb, NULL, 0);
     } else {
@@ -299,17 +320,39 @@ int handle_e(tcp_buffer *wb, char *args, int len) {
     const char *msg = "Bye!";
     reply(wb, msg, strlen(msg) + 1);
     Log("Exit");
+    cmd_exit();
     return -1;
 }
 
 int handle_login(tcp_buffer *wb, char *args, int len) {
     // login <uid>
+    char msg[64];
     int uid = atoi(args);
     if (cmd_login(uid) == E_SUCCESS) {
-        reply_with_yes(wb, NULL, 0);
+        Log("login: uid=%u", uid);
+        sprintf(msg, "Hello, uid=%u!", uid);
+        reply_with_yes(wb, msg, strlen(msg) + 1);
     } else {
-        const char *msg = "Failed to login";
+        sprintf(msg, "Failed to login");
         reply_with_no(wb, msg, strlen(msg) + 1);
+    }
+    return 0;
+}
+
+int handle_pwd(tcp_buffer *wb, char *args, int len) {
+    // pwd
+    char buf[64];
+    uint msglen;
+    char *msg = NULL;
+    int ret = backInfo(buf, cmd_pwd(&msg, &msglen));
+    if(ret == E_SUCCESS){
+        Log("pwd: %s", msg);
+        reply_with_yes(wb, msg, msglen + 1);
+        free(msg);
+    }
+    else{
+        if(ret == E_ERROR) sprintf(buf, "Failed to show pwd");
+        reply_with_no(wb, buf, strlen(buf) + 1);
     }
     return 0;
 }
@@ -320,16 +363,18 @@ static struct {
 } cmd_table[] = {{"f", handle_f},        {"mk", handle_mk},       {"mkdir", handle_mkdir}, {"rm", handle_rm},
                  {"cd", handle_cd},      {"rmdir", handle_rmdir}, {"ls", handle_ls},       {"cat", handle_cat},
                  {"w", handle_w},        {"i", handle_i},         {"d", handle_d},         {"e", handle_e},
-                 {"login", handle_login}};
+                 {"login", handle_login},{"pwd", handle_pwd}};
 
 #define NCMD (sizeof(cmd_table) / sizeof(cmd_table[0]))
 
 void on_connection(int id) {
-    // some code that are executed when a new client is connected
+    // const char *msg = "Welcome to my file system!\nTap 'login <uid>' to login.";
+
 }
 
 int on_recv(int id, tcp_buffer *wb, char *msg, int len) {
     char *p = strtok(msg, " \r\n");
+    Log("Use command: %s", p);
     int ret = 1;
     for (int i = 0; i < NCMD; ++i)
         if (p && strcmp(p, cmd_table[i].name) == 0) {
@@ -347,7 +392,7 @@ int on_recv(int id, tcp_buffer *wb, char *msg, int len) {
 }
 
 void cleanup(int id) {
-    // some code that are executed when a client is disconnected
+    // some code that are executed when a client is disconnected   
 }
 
 FILE *log_file;
@@ -355,23 +400,30 @@ FILE *log_file;
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         fprintf(stderr,
-                "Usage: %s <DiskServerAddress> <BDSPort> <FSPort>\n",
+                "Usage: %s <BDSPort> <FSPort>\n",
                 argv[0]);
         exit(EXIT_FAILURE);
     }
 
     log_init("fs.log");
-    
+
     assert(BSIZE % sizeof(dinode) == 0);
+    assert(BSIZE % sizeof(dirent) == 0);
+
+    diskseverinit(atoi(argv[1]));
+    Log("Connected to disk server");
 
     // get disk info and store in global variables
     get_disk_info(&ncyl, &nsec);
+    Log("ncyl=%d, nsec=%d", ncyl, nsec);
 
     // read the superblock
     sbinit();
-    
+    Log("Superblock initialized, %sformatted", sb.magic == MAGIC ? "" : "not ");
+    Log("size=%u, nblocks=%u, ninodes=%u", sb.size, sb.nblocks, sb.ninodes);
+
     // command
-    tcp_server server = server_init(666, 1, on_connection, on_recv, cleanup);
+    tcp_server server = server_init(atoi(argv[2]), 1, on_connection, on_recv, cleanup);
     server_run(server);
 
     // never reached

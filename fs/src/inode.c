@@ -146,10 +146,10 @@ int icreate(short type, char *name, uint pinum, ushort uid, ushort perm) {
                           // for normal files, add it to the parent directory
         ip = iget(pinum);
         checkIp(ip);
-        dirent de;
-        de.inum = inum;
-        strcpy(de.name, name);
-        writei(ip, (uchar *)&de, ip->size, sizeof(de));
+        dirent dir;
+        dir.inum = inum;
+        strcpy(dir.name, name);
+        writei(ip, (uchar *)&dir, ip->size, sizeof(dir));
         iput(ip);
     }
     return 0;
@@ -236,7 +236,7 @@ int imapblock(inode *ip, uint bno) {
         }
         return addr;
     } else {
-        Warn("bmap: bno too large");
+        Warn("imapblock: bno too large");
         return 0;
     }
 }

@@ -24,7 +24,7 @@ int format(int *ncyl, int *nsec){
     sb.size = (*ncyl) * (*nsec);
 
     int ninodes = NINODE(sb.size);
-    int nallcatedb = 1 + NBBLOCK(sb.size) + NIBLOCK(sb.size);
+    int nmeta = 1 + NBBLOCK(sb.size) + NIBLOCK(sb.size);
 
     sb.ninodes = ninodes;
     sb.nblocks = sb.size - 1 - NBBLOCK(sb.size) - NIBLOCK(sb.size);
@@ -36,23 +36,24 @@ int format(int *ncyl, int *nsec){
     memcpy(buf, &sb, sizeof(sb));
     write_block(0, buf);
 
-    // bitmap init
+    // bitmap, inode block init
     memset(buf, 0, BSIZE);
     for (int i = 0; i < sb.size; i += BPB) write_block(BBLOCK(i), buf);
     for (int i = 0; i < ninodes; i += IPB) write_block(IBLOCK(i), buf);
 
     // mark bitmap and inode blocks as in use
-    for (int i = 0; i < nallcatedb; i += BPB) {
+    for (int i = 0; i < nmeta; i += BPB) {
         memset(buf, 0, BSIZE);
         for (int j = 0; j < BPB; ++j)
-            if (i + j < nallcatedb) buf[j / 8] |= 1 << (j % 8);
+            if (i + j < nmeta) buf[j / 8] |= 1 << (j % 8);
         write_block(BBLOCK(i), buf);
     }
 
     pwd = 0;
     // make root dir
-    if (!icreate(T_DIR, NULL, 0, 0, 0b1111)){
+    if (!icreate(T_DIR, NULL, 0, 0, 0b11111)){
         Log("Disk format done");
+        Log("size=%u, nblocks=%u, ninodes=%u", sb.size, sb.nblocks, sb.ninodes);
     }
     else return -1;
     return sb.size;
@@ -75,14 +76,36 @@ int checkFmt(){
     return ret ? E_NOT_LOGGED_IN : E_SUCCESS;
 }
 
+int checkVisible(uint inum){
+    inode *ip = iget(inum);
+    checkIp(ip);
+    int ret = 1;
+    if(uid == 1 || ip->uid == uid){
+        ret = 1;
+    } else if((ip->mode & 0b1) == 0b1){
+        ret = 1;
+    } else {
+        ret = 0;
+    }
+    iput(ip);
+    return ret;
+}
+
 int checkPermission(uint inum, short perm){
     inode *ip = iget(inum);
     checkIp(ip);
     int ret = 0;
-    if (ip->uid == uid)
+    if (uid == 1)
         ret = 1;
-    else {
-        if ((ip->mode & perm) == perm)
+    else if(ip->uid == uid) {
+        if ((ip->mode >> 3 & perm) == perm)
+            ret = 1;
+        else{
+            ret = 0;
+            Warn("Permisson denied");
+        }
+    } else {
+        if ((ip->mode >> 1 & perm) == perm)
             ret = 1;
         else{
             ret = 0;
@@ -101,8 +124,8 @@ int is_name_valid(char *name) {
     if (strcmp(name, "/") == 0) return 0;
     // static char invalid[] = "\\/<>?\":| @#$&();*";
     // int invalidlen = strlen(invalid);
-    // for (int i = 0; i < len; i++)
-    //     for (int j = 0; j < invalidlen; j++)
+    // for (int i = 0; i < len; ++i)
+    //     for (int j = 0; j < invalidlen; ++j)
     //         if (name[i] == invalid[j]) return 0;
     return 1;
 }
@@ -119,7 +142,7 @@ uint findinum(char *name) {
     int ninodes = NINODE(sb.size);
     int result = ninodes;
     int nfile = ip->size / sizeof(dirent);
-    for (int i = 0; i < nfile; i++) {
+    for (int i = 0; i < nfile; ++i) {
         if (dir[i].inum == ninodes) continue;
         if (strcmp(dir[i].name, name) == 0) {
             result = dir[i].inum;
@@ -143,7 +166,7 @@ int delinum(uint inum) {
     int ninodes = NINODE(sb.size);
     int nfile = ip->size / sizeof(dirent);
     int deleted = 1;
-    for (int i = 0; i < nfile; i++) {
+    for (int i = 0; i < nfile; ++i) {
         if (dir[i].inum == ninodes) {
             ++deleted;
             continue;
@@ -160,7 +183,7 @@ int delinum(uint inum) {
         uchar *newbuf = malloc(newsize);
         dirent *newde = (dirent *)newbuf;
         int j = 0;
-        for (int i = 0; i < nfile; i++) {
+        for (int i = 0; i < nfile; ++i) {
             if (dir[i].inum == ninodes) continue;
             memcpy(&newde[j++], &dir[i], sizeof(dirent));
         }
@@ -177,6 +200,7 @@ int delinum(uint inum) {
 }
 
 int cmd_f(int ncyl, int nsec) {
+    if(uid != 1) return E_PERMISSION_DENIED;
     if(ncyl <= 0 || nsec <= 0){
         return E_ERROR;
     }
@@ -190,6 +214,8 @@ int cmd_f(int ncyl, int nsec) {
 int cmd_mk(char *name, short mode) {
     int ret = checkFmt();
     if(ret) return ret;
+    ret = checkPermission(pwd, R | W);
+    if(ret) return ret;
     if (!is_name_valid(name)) {
         Warn("mk: Invalid name!");
         return E_ERROR;
@@ -198,14 +224,14 @@ int cmd_mk(char *name, short mode) {
         Warn("mk: %s already exists!", name);
         return E_ERROR;
     }
-    ret = checkPermission(pwd, R | W);
-    if(ret) return ret;
     if(icreate(T_FILE, name, pwd, uid, mode)) return E_ERROR;
     return E_SUCCESS;
 }
 
 int cmd_mkdir(char *name, short mode) {
     int ret = checkFmt();
+    if(ret) return ret;
+    ret = checkPermission(pwd, R | W);
     if(ret) return ret;
     if (!is_name_valid(name)) {
         Warn("mkdir: Invalid name!");
@@ -215,8 +241,6 @@ int cmd_mkdir(char *name, short mode) {
         Warn("mkdir: %s already exists!", name);
         return E_ERROR;
     }
-    ret = checkPermission(pwd, R | W);
-    if(ret) return ret;
     if(icreate(T_DIR, name, pwd, uid, mode)) return E_ERROR;
     return E_SUCCESS;
 }
@@ -226,11 +250,9 @@ int cmd_rm(char *name) {
     if(ret) return ret;
     uint inum = findinum(name);
     if (inum == NINODE(sb.size)) {
+        Warn("rm: Not found!");
         return E_ERROR;
     }
-    ret = checkPermission(inum, W);
-    ret |= checkPermission(pwd, R | W);
-    if(ret) return ret;
     inode *ip = iget(inum);
     checkIp(ip);
     if (ip->type != T_FILE) {
@@ -238,6 +260,12 @@ int cmd_rm(char *name) {
         iput(ip);
         return E_ERROR;
     }
+    ret = checkPermission(inum, W);
+    ret |= checkPermission(pwd, R | W);
+    if(ret){
+        iput(ip);
+        return ret;
+    } 
     if (--ip->links == 0) {
         itrunc(ip);
     } else {
@@ -258,15 +286,18 @@ int cmd_rmdir(char *name) {
         Warn("rmdir: Not found!");
         return E_ERROR;
     }
-    ret = checkPermission(inum, R | W);
-    ret |= checkPermission(pwd, R | W);
-    if(ret) return ret;
     inode *ip = iget(inum);
     checkIp(ip);
     if (ip->type != T_DIR) {
         Warn("rmdir: Not a directory, please use rm");
         iput(ip);
         return E_ERROR;
+    }
+    ret = checkPermission(inum, R | W);
+    ret |= checkPermission(pwd, R | W);
+    if(ret){
+        iput(ip);
+        return ret;
     }
 
     // if dir is not empty
@@ -302,15 +333,16 @@ int _cd(char *name) {
     uint inum = findinum(name);
     if (inum == NINODE(sb.size)) {
         Warn("cd: Not found!");
-        return 1;
+        return E_ERROR;
     }
-    checkPermission(inum, R);
+    int ret = checkPermission(inum, R);
+    if(ret) return ret;
     inode *ip = iget(inum);
     checkIp(ip);
     if (ip->type != T_DIR) {
         Warn("cd: Not a directory");
         iput(ip);
-        return 1;
+        return E_ERROR;
     }
     pwd = inum;
     iput(ip);
@@ -325,9 +357,10 @@ int cmd_cd(char *str) {
     if (str[0] == '/') pwd = 0;  // start from root
     char *p = strtok_r(str, "/", &ptr);
     while (p) {
-        if (_cd(p) != 0) {  // if not success
+        ret = _cd(p);
+        if (ret != 0) {  // if not success
             pwd = backup;   // restore the pwd
-            return E_ERROR;
+            return ret;
         }
         p = strtok_r(NULL, "/", &ptr);
     }
@@ -349,7 +382,8 @@ int cmp_ls(const void *a, const void *b) {
 
 int cmd_ls(entry **entries, int *n) {
     int ret = checkFmt();
-    ret |= checkPermission(pwd, R);
+    if(ret) return ret;
+    ret = checkPermission(pwd, R);
     if(ret) return ret;
     inode *ip = iget(pwd);
     checkIp(ip);
@@ -369,6 +403,7 @@ int cmd_ls(entry **entries, int *n) {
         if (dir[i].inum == ninodes) continue;  // deleted
         if (strcmp(dir[i].name, ".") == 0 || strcmp(dir[i].name, "..") == 0)
             continue;
+        if(checkVisible(dir[i].inum) == 0) continue;  // invisible
         inode *sub = iget(dir[i].inum);
         checkIp(sub);
         (*entries)[*n].type = sub->type;
@@ -381,32 +416,9 @@ int cmd_ls(entry **entries, int *n) {
         iput(sub);
     }
     qsort(*entries, *n, sizeof(entry), cmp_ls);
-    static char str[100];  // for time
-    static char logbuf[4096], *logtmp;
-    printf("\33[1mType \tOwner\tUpdate time\tSize\tName\033[0m\n");
-    logtmp = logbuf;
-    logtmp += sprintf(logtmp, "List files\nType \tOwner\tUpdate time\tSize\tName\n");
-    for (int i = 0; i < *n; ++i) {
-        time_t mtime = (*entries)[i].mtime;
-        struct tm *tmptr = localtime(&mtime);
-        strftime(str, sizeof(str), "%m-%d %H:%M", tmptr);
-        short d = (*entries)[i].type == T_DIR;
-        short m = (d << 4) | (*entries)[i].mode;
-        static char a[] = "drwrw";
-        for (int j = 0; j <= 4; j++) {
-            printf("%c", m & (1 << (4 - j)) ? a[j] : '-');
-            logtmp += sprintf(logtmp, "%c", m & (1 << (4 - j)) ? a[j] : '-');
-        }
-        printf("\t%u\t%s\t%d\t", (*entries)[i].uid, str, (*entries)[i].size);
-        printf(d ? "\033[34m\33[1m%s\033[0m\n" : "%s\n", (*entries)[i].name);
-        // WARN: BUFFER OVERFLOW
-        logtmp += sprintf(logtmp, "\t%u\t%s\t%d\t%s\n", (*entries)[i].uid, str,
-                          (*entries)[i].size, (*entries)[i].name);
-    }
-    Log("%s", logbuf);
+
     free(buf);
     iput(ip);
-
     return E_SUCCESS;
 }
 
@@ -418,14 +430,17 @@ int cmd_cat(char *name, uchar **buf, uint *len) {
         Warn("cat: Not found!");
         return E_ERROR;
     }
-    ret = checkPermission(inum, R);
-    if(ret) return ret;
     inode *ip = iget(inum);
     checkIp(ip);
     if (ip->type != T_FILE) {
         Warn("cat: Not a file");
         iput(ip);
         return E_ERROR;
+    }
+    ret = checkPermission(inum, R);
+    if(ret){
+        iput(ip);
+        return ret;
     }
 
     if(*buf != NULL){
@@ -459,7 +474,7 @@ int cmd_w(char *name, uint len, const char *data) {
         iput(ip);
         return E_ERROR;
     }
-    if (len > 512 || len > strlen(data)) {
+    if (len > BSIZE|| len > strlen(data)) {
         Warn("w: Too long");
         iput(ip);
         return E_ERROR;
@@ -495,7 +510,7 @@ int cmd_i(char *name, uint pos, uint len, const char *data) {
         iput(ip);
         return E_ERROR;
     }
-    if (len > 512 || len > strlen(data)) {
+    if (len > BSIZE || len > strlen(data)) {
         Warn("i: Too long");
         iput(ip);
         return E_ERROR;
@@ -560,6 +575,70 @@ int cmd_login(int auid) {
         return E_ERROR;
     }
     uid = auid;
-    printf("Hello, uid=%u!\n", uid);
+    return E_SUCCESS;
+}
+
+int cmd_exit() {
+    uid = 0;
+    pwd = 0;
+    return E_SUCCESS;
+}
+
+int cmd_pwd(char **msg, uint *len){
+    inode *ip = iget(pwd);
+    checkIp(ip);
+
+    char name[256][MAXNAME];
+    uchar *buf = malloc(ip->size);
+    readi(ip, buf, 0, ip->size);
+    dirent *dir = (dirent *)buf;
+    int nfile = ip->size / sizeof(dirent), ndir = 0, curr = pwd;
+    *len = 0;
+    while(ip->inum != 0){
+        if(nfile < 2){
+            Error("pwd: No parent");
+            return E_ERROR;
+        }
+        iput(ip);
+        ip = iget(dir[1].inum);
+        checkIp(ip);
+
+        free(buf);
+        buf = malloc(ip->size);
+        readi(ip, buf, 0, ip->size);
+        dir = (dirent *)buf;
+        nfile = ip->size / sizeof(dirent);
+        for(int i = 0; i < nfile; ++i){
+            if(dir[i].inum == curr){
+                strcpy(name[ndir++], dir[i].name);
+                *len += strlen(dir[i].name) + 1;
+                // Log("%s %d", dir[i].name, *len);
+                curr = ip->inum;
+                break;
+            }
+        }
+        if(curr != ip->inum){
+            Error("pwd: Current dir name not found");
+            return E_ERROR;
+        }
+    }
+    if(*msg != NULL){
+        Warn("pwd: Dirty pwd");
+    }
+    
+    *msg = malloc(max(2, *len + 1));
+    *msg[0] = 0;
+    if(ndir == 0){
+        ++(*len);
+        strcat(*msg, "/");
+    }
+    for(int i = 0; i < ndir; ++i){
+        strcat(*msg, "/");
+        strcat(*msg, name[ndir - i - 1]);
+        // Log("msg: %s", *msg);
+    }
+    
+    free(buf);
+    iput(ip);
     return E_SUCCESS;
 }

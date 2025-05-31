@@ -32,10 +32,4 @@ enum {
     E_PERMISSION_DENIED = 4,
 };
 
-// permissions
-enum { 
-    R = 0b10,
-    W = 0b01 
-};
-
 #endif
