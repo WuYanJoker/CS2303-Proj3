@@ -106,7 +106,7 @@ int format(int *ncyl, int *nsec){
     }
     else return -1;
     
-    to_home();
+    // to_home();
     return sb.size;
 }
 
@@ -665,7 +665,7 @@ int cmd_login(int auid) {
         return E_ERROR;
     }
     uid = auid;
-    to_home();
+    // to_home();
     return E_SUCCESS;
 }
 
