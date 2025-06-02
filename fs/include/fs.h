@@ -19,8 +19,10 @@ typedef struct{
     int uid;
 } id_map;
 
-extern ushort uid;
+// extern ushort uid;
 // extern uint pwd;
+void load_user(id_map *idmap, int id);
+void save_user(id_map *idmap, int id);
 
 void sbinit();
 
@@ -47,7 +49,6 @@ int cmd_w(char *name, uint len, const char *data);
 int cmd_i(char *name, uint pos, uint len, const char *data);
 int cmd_d(char *name, uint pos, uint len);
 
-int to_home(int uid);
 int cmd_login(int auid);
 int cmd_exit();
 

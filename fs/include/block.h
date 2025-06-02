@@ -7,7 +7,7 @@
 
 #define NBBLOCK(size) (size / BPB + 1)
 
-#define MAXUSER 16
+#define MAXUSER 12
 
 typedef struct {
     ushort uid;

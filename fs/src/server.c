@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
+#include <pthread.h>
 
 #include "block.h"
 #include "common.h"
@@ -14,6 +14,7 @@
 // global variables
 int ncyl, nsec;
 id_map clientmap[MAXUSER];
+pthread_mutex_t  mutex_lock;
 
 #define ReplyYes()       \
     do {                 \
@@ -337,11 +338,6 @@ int handle_login(tcp_buffer *wb, char *args, int len) {
         sprintf(msg, "Failed to login");
         reply_with_no(wb, msg, strlen(msg) + 1);
     }
-
-    int ret = backInfo(msg, to_home(uid));
-    if (ret == E_SUCCESS) {
-        Log("User %d's home directory created", uid);
-    }
     return 0;
 }
 
@@ -375,7 +371,14 @@ static struct {
 
 void on_connection(int id) {
     // const char *msg = "Welcome to my file system!\nTap 'login <uid>' to login.";
-
+    for(int i = 0; i < MAXUSER; ++i){
+        if(clientmap[i].client_id == -1){
+            clientmap[i].client_id = id;
+            Log("Create map:fd %d in %d", id, i);
+            return;
+        }
+    }
+    Error("No free uid space");
 }
 
 int on_recv(int id, tcp_buffer *wb, char *msg, int len) {
@@ -384,7 +387,11 @@ int on_recv(int id, tcp_buffer *wb, char *msg, int len) {
     int ret = 1;
     for (int i = 0; i < NCMD; ++i)
         if (p && strcmp(p, cmd_table[i].name) == 0) {
+            pthread_mutex_lock(&mutex_lock);
+            load_user(clientmap, id);
             ret = cmd_table[i].handler(wb, p + strlen(p) + 1, len - strlen(p) - 1);
+            save_user(clientmap, id);
+            pthread_mutex_unlock(&mutex_lock);
             break;
         }
     if (ret == 1) {
@@ -398,7 +405,13 @@ int on_recv(int id, tcp_buffer *wb, char *msg, int len) {
 }
 
 void cleanup(int id) {
-    // some code that are executed when a client is disconnected   
+    // some code that are executed when a client is disconnected 
+    for(int i = 0; i < MAXUSER; ++i){
+        if(clientmap[i].client_id == id){
+            clientmap[i].client_id = -1;
+        }
+        break;
+    }  
 }
 
 FILE *log_file;
@@ -428,8 +441,10 @@ int main(int argc, char *argv[]) {
     Log("Superblock initialized, %sformatted", sb.magic == MAGIC ? "" : "not ");
     Log("size=%u, nblocks=%u, ninodes=%u", sb.size, sb.nblocks, sb.ninodes);
 
+    pthread_mutex_init(&mutex_lock, NULL);
+    for(int i = 0; i < MAXUSER; ++i) clientmap[i].client_id = -1;
     // command
-    tcp_server server = server_init(atoi(argv[2]), 1, on_connection, on_recv, cleanup);
+    tcp_server server = server_init(atoi(argv[2]), 12, on_connection, on_recv, cleanup);
     server_run(server);
 
     // never reached

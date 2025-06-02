@@ -77,7 +77,7 @@ int readi(inode *ip, uchar *dst, uint off, uint n);
 int writei(inode *ip, uchar *src, uint off, uint n);
 
 // check inode pointer
-void checkIp(inode *ip);
+int checkIp(inode *ip);
 
 // test if ip->blocks is too larger than size, recycle blocks
 int itest(inode *ip);

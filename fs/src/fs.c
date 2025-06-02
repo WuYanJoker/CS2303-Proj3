@@ -10,12 +10,59 @@
 
 ushort uid;
 uint cwd;
+ushort profid;
+
+void load_user(id_map *idmap, int id){
+    for(int i = 0; i < MAXUSER; ++i){
+        if(idmap[i].client_id == id){
+            for(int j = 0; j < MAXUSER; ++j){
+                if(sb.users[j].uid == idmap[i].uid){
+                    profid = j;
+                    
+                    uid = sb.users[profid].uid;
+
+                    inode *ip = iget(sb.users[profid].cwd);
+                    if(checkIp(ip)){
+                        Error("Failed to find cwd for uid: %d, return to the root", uid);
+                        cwd = 0;
+                    }
+                    cwd = sb.users[profid].cwd;
+                    iput(ip);
+                    return;
+                }
+            }
+        }
+    }
+    Error("No matching userfile");
+}
+
+void save_user(id_map *idmap, int id){
+    for(int i = 0; i < MAXUSER; ++i){
+        if(idmap[i].client_id == id){
+            if(idmap[i].uid == 0) idmap[i].uid = uid;
+            sb.users[profid].uid = uid;
+            sb.users[profid].cwd = cwd;
+            Log("uidmap: %d: id: %d uid: %d cwd: %d", profid, id, uid, cwd);
+
+            uchar buf[BSIZE];
+            memcpy(buf, &sb, sizeof(sb));
+            write_block(0, buf);
+
+            uid = 0;
+            cwd = 0;
+            profid = 0;
+            break;
+        }
+    }
+}
 
 void sbinit() {
     uchar buf[BSIZE];
     read_block(0, buf);
     memcpy(&sb, buf, sizeof(sb));
 }
+
+int to_home();
 
 int format(int *ncyl, int *nsec){
     uchar buf[BSIZE];
@@ -30,6 +77,8 @@ int format(int *ncyl, int *nsec){
     sb.nblocks = sb.size - 1 - NBBLOCK(sb.size) - NIBLOCK(sb.size);
     sb.bmapstart = 1;
     sb.inodestart = 1 + NIBLOCK(sb.size);
+    sb.users[0].uid = 1;
+    sb.users[0].cwd = 0;
 
     // zero superblock
     memset(buf, 0, BSIZE);
@@ -57,7 +106,7 @@ int format(int *ncyl, int *nsec){
     }
     else return -1;
     
-    to_home(1);
+    to_home();
     return sb.size;
 }
 
@@ -571,7 +620,7 @@ int cmd_d(char *name, uint pos, uint len) {
     return E_SUCCESS;
 }
 
-int to_home(int uid){
+int to_home(){
     int ret = checkFmt();
     if(ret) return ret;
     uint backup = cwd;
@@ -606,16 +655,6 @@ int to_home(int uid){
         }
     }
 
-    for(int i = 0; i < MAXUSER; ++i){
-        if(sb.users[i].uid == uid){
-            sb.users[i].cwd = cwd;
-            uchar buf[BSIZE];
-            memcpy(buf, &sb, sizeof(sb));
-            write_block(0, buf);
-            break;
-        } 
-    }
-
     cwd = backup;
     return E_SUCCESS;
 }
@@ -626,17 +665,8 @@ int cmd_login(int auid) {
         return E_ERROR;
     }
     uid = auid;
-    for(int i = 0; i < MAXUSER; ++i){
-        if(sb.users[i].uid == 0){
-            sb.users[i].uid = auid;
-            uchar buf[BSIZE];
-            memcpy(buf, &sb, sizeof(sb));
-            write_block(0, buf);
-            return E_SUCCESS;
-        }
-    }
-    Error("No free uid space");
-    return E_ERROR;
+    to_home();
+    return E_SUCCESS;
 }
 
 int cmd_exit() {
@@ -646,6 +676,10 @@ int cmd_exit() {
 }
 
 int cmd_pwd(char **msg, uint *len){
+    int ret = checkLogin();
+    if(ret) return ret;
+    ret = checkPermission(uid, R);
+    if(ret) return ret;
     inode *ip = iget(cwd);
     checkIp(ip);
 

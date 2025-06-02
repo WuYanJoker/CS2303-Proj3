@@ -103,10 +103,11 @@ int writei(inode *ip, uchar *src, uint off, uint n) {
     return n;
 }
 
-void checkIp(inode *ip){
+int checkIp(inode *ip){
     if(!ip){
         Error("Inode not exist");
     }
+    return ip == NULL;
 }
 
 int itest(inode *ip) {
