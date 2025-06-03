@@ -20,7 +20,7 @@ typedef struct{
 } id_map;
 
 // extern ushort uid;
-// extern uint pwd;
+// extern uint cwd;
 void load_user(id_map *idmap, int id);
 void save_user(id_map *idmap, int id);
 

@@ -23,8 +23,9 @@ void load_user(id_map *idmap, int id){
 
                     inode *ip = iget(sb.users[profid].cwd);
                     if(checkIp(ip)){
-                        Error("Failed to find cwd for uid: %d, return to the root", uid);
+                        Warn("Failed to find cwd for uid: %d, return to the root", uid);
                         cwd = 0;
+                        return;
                     }
                     cwd = sb.users[profid].cwd;
                     iput(ip);
@@ -119,17 +120,17 @@ int checkLogin(){
 }
 
 int checkFmt(){
-    int ret = checkLogin();
+    if(checkLogin()) return E_NOT_LOGGED_IN;
     if(sb.magic != MAGIC){
         Warn("Not formatted");
         return E_NOT_FORMATTED;
     }
-    return ret ? E_NOT_LOGGED_IN : E_SUCCESS;
+    return E_SUCCESS;
 }
 
 int checkVisible(uint inum){
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return 0;
     int ret = 1;
     if(uid == 1 || ip->uid == uid){
         ret = 1;
@@ -144,7 +145,7 @@ int checkVisible(uint inum){
 
 int checkPermission(uint inum, short perm){
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return 0;
     int ret = 0;
     if (uid == 1)
         ret = 1;
@@ -305,7 +306,7 @@ int cmd_rm(char *name) {
         return E_ERROR;
     }
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_FILE) {
         Warn("rm: Not a file, please use rmdir");
         iput(ip);
@@ -338,7 +339,7 @@ int cmd_rmdir(char *name) {
         return E_ERROR;
     }
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_DIR) {
         Warn("rmdir: Not a directory, please use rm");
         iput(ip);
@@ -389,7 +390,7 @@ int _cd(char *name) {
     int ret = checkPermission(inum, R);
     if(ret) return ret;
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_DIR) {
         Warn("cd: Not a directory");
         iput(ip);
@@ -437,7 +438,7 @@ int cmd_ls(entry **entries, int *n) {
     ret = checkPermission(cwd, R);
     if(ret) return ret;
     inode *ip = iget(cwd);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
 
     uchar *buf = malloc(ip->size);
     readi(ip, buf, 0, ip->size);
@@ -456,7 +457,7 @@ int cmd_ls(entry **entries, int *n) {
             continue;
         if(checkVisible(dir[i].inum) == 0) continue;  // invisible
         inode *sub = iget(dir[i].inum);
-        checkIp(sub);
+        if(checkIp(sub)) return E_ERROR;
         (*entries)[*n].type = sub->type;
         strcpy((*entries)[*n].name, dir[i].name);
         (*entries)[*n].mtime = sub->mtime;
@@ -482,7 +483,7 @@ int cmd_cat(char *name, uchar **buf, uint *len) {
         return E_ERROR;
     }
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_FILE) {
         Warn("cat: Not a file");
         iput(ip);
@@ -519,7 +520,7 @@ int cmd_w(char *name, uint len, const char *data) {
     ret = checkPermission(inum, W);
     if(ret) return ret;
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_FILE) {
         Warn("w: Not a file");
         iput(ip);
@@ -555,7 +556,7 @@ int cmd_i(char *name, uint pos, uint len, const char *data) {
     ret = checkPermission(inum, W);
     if(ret) return ret;
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_FILE) {
         Warn("i: Not a file");
         iput(ip);
@@ -594,7 +595,7 @@ int cmd_d(char *name, uint pos, uint len) {
     ret = checkPermission(inum, W);
     if(ret) return ret;
     inode *ip = iget(inum);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
     if (ip->type != T_FILE) {
         Warn("d: Not a file");
         iput(ip);
@@ -681,7 +682,7 @@ int cmd_pwd(char **msg, uint *len){
     ret = checkPermission(uid, R);
     if(ret) return ret;
     inode *ip = iget(cwd);
-    checkIp(ip);
+    if(checkIp(ip)) return E_ERROR;
 
     char name[256][MAXNAME];
     uchar *buf = malloc(ip->size);
@@ -696,9 +697,9 @@ int cmd_pwd(char **msg, uint *len){
         }
         iput(ip);
         ip = iget(dir[1].inum);
-        checkIp(ip);
-
         free(buf);
+        if(checkIp(ip)) return E_ERROR;
+
         buf = malloc(ip->size);
         readi(ip, buf, 0, ip->size);
         dir = (dirent *)buf;

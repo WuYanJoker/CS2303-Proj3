@@ -105,7 +105,7 @@ int writei(inode *ip, uchar *src, uint off, uint n) {
 
 int checkIp(inode *ip){
     if(!ip){
-        Error("Inode not exist");
+        Warn("Inode not exist");
     }
     return ip == NULL;
 }

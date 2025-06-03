@@ -374,6 +374,7 @@ void on_connection(int id) {
     for(int i = 0; i < MAXUSER; ++i){
         if(clientmap[i].client_id == -1){
             clientmap[i].client_id = id;
+            clientmap[i].uid = 0;
             Log("Create map:fd %d in %d", id, i);
             return;
         }
@@ -448,5 +449,6 @@ int main(int argc, char *argv[]) {
     server_run(server);
 
     // never reached
+    pthread_mutex_destroy(&mutex_lock);
     log_close();
 }
